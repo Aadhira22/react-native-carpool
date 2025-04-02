@@ -1,18 +1,26 @@
 import React from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
+import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet, Linking } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
 import { createStackNavigator } from "@react-navigation/stack";
 import MapScreen from './MapScreen';
 
 const Stack = createStackNavigator();
 
-export default function RideDetailsScreen({ navigation }){
+export default function RideDetailsScreen({ navigation }) {
   const userImage = require("./assets/user1.jpg"); // Import image statically
+  const driverPhoneNumber = "9876543210"; // The phone number you want to dial when "Call" button is pressed
+
+  // Function to open dialer with the phone number
+  const handleCallPress = () => {
+    Linking.openURL(`tel:${driverPhoneNumber}`).catch(err =>
+      console.error("Failed to open dialer", err)
+    );
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={true}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>>Ride Overview</Text>
+        <Text style={styles.headerText}>Ride Overview</Text>
       </View>
       <View style={styles.rideInfo}>
         <View style={styles.row}>
@@ -45,39 +53,39 @@ export default function RideDetailsScreen({ navigation }){
         <TouchableOpacity style={styles.viewDetailsButton}>
           <Text style={styles.buttonText}>View Details</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.callButton}>
+        <TouchableOpacity style={styles.callButton} onPress={handleCallPress}>
           <Text style={styles.callText}>Call</Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>Co-Passengers</Text>
-      {[
-        { name: "Dinesh", details: "TCS, Chennai" },
-        { name: "Sara", details: "IBM, Chennai" },
-      ].map((passenger, index) => (
-        <View key={index}>
-          <View style={styles.card}>
-            <Image source={userImage} style={styles.profileImage} />
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{passenger.name}</Text>
-              <Text style={styles.userDetails}>{passenger.details}</Text>
+      {[{ name: "Dinesh", details: "TCS, Chennai" }, { name: "Sara", details: "IBM, Chennai" }].map(
+        (passenger, index) => (
+          <View key={index}>
+            <View style={styles.card}>
+              <Image source={userImage} style={styles.profileImage} />
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{passenger.name}</Text>
+                <Text style={styles.userDetails}>{passenger.details}</Text>
+              </View>
+              <TouchableOpacity style={styles.iconButton}>
+                <Icon name="star" size={20} color="#FF4500" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.iconButton}>
-              <Icon name="star" size={20} color="#FF4500" />
+            <TouchableOpacity style={styles.viewDetailsButton}>
+              <Text style={styles.buttonText}>View Details</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.viewDetailsButton}>
-            <Text style={styles.buttonText}>View Details</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
+        )
+      )}
 
       <TouchableOpacity style={styles.mapButton} onPress={() => navigation.navigate("MapScreen")}>
-  <Text style={styles.mapButtonText}>View On Map</Text>
-</TouchableOpacity>
+        <Text style={styles.mapButtonText}>View On Map</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -197,4 +205,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-

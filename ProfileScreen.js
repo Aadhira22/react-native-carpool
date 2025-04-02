@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import Icon from "react-native-vector-icons/Feather";
-import EmergencyContactsScreen from './EmergencyContactsScreen';
 export default function ProfileScreen({navigation}) {
   return (
     <View style={styles.container}>
@@ -10,7 +9,7 @@ export default function ProfileScreen({navigation}) {
         <Image source={require('./assets/user1.jpg')} style={styles.profileImage} />
         <View style={styles.profileText}>
           <Text style={styles.name}>Shivanshi</Text>
-          <Text style={styles.email}>aitkacisara@gmail.com</Text>
+          <Text style={styles.email}>shivanshi@gmail.com</Text>
         </View>
       </View>
 
@@ -18,11 +17,11 @@ export default function ProfileScreen({navigation}) {
       <Text style={styles.sectionTitle}>My account</Text>
       <TouchableOpacity style={styles.option}>
         <Icon name="user" size={18} color="#333" />
-        <Text style={styles.optionText}>Personal information</Text>
+        <Text style={styles.optionText} onPress={() => navigation.navigate("EditAccountScreen")}>Personal information</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.option} onPress={() => navigation.navigate("EmergencyContactsScreen")}>
+      <TouchableOpacity style={styles.option} onPress={() => navigation.navigate("VehicleManagementScreen")}>
         <Icon name="phone" size={18} color="#333"  />
-        <Text style={styles.optionText}>Emergency numbers</Text>
+        <Text style={styles.optionText}>Vehicle management</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.option}>
         <Icon name="map-pin" size={18} color="#333" />
@@ -95,9 +94,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 10,
   },
+  // #D9534F
   logoutButton: {
     flexDirection: "row",
-    backgroundColor: "#D9534F",
+    backgroundColor: "#FF4500",
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
