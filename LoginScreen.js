@@ -1,18 +1,88 @@
-import React, { useState } from 'react';
+import { GOOGLE_WEB_CLIENT_ID} from '@env';
+import React, { useState ,useEffect} from 'react';
 import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,Platform
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather'; // Icon for show/hide password
-import SignUpScreen from './SignUpScreen';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { auth, provider } from './firebaseConfig';
+import { GoogleAuthProvider,signInWithPopup,signInWithCredential } from "firebase/auth";
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
-    if (email === 'shivanshi@gmail.com' && password === 'abc123') {
-      navigation.navigate('FindRideScreen'); // Navigate if credentials are correct
-    } 
+   // Function to handle Google Sign-In
+   useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID, // Get this from Firebase Console
+    });
+  }, []);
+  const handleGoogleLogin = async () => {
+    try {
+      let user = null;
+  
+      if (Platform.OS === "web") {
+        console.log('hello');
+        const result = await signInWithPopup(auth, provider);
+        user = result.user;
+        console.log('mello');
+      } else {
+        await GoogleSignin.hasPlayServices();
+        const { idToken } = await GoogleSignin.signIn();
+        const googleCredential = GoogleAuthProvider.credential(idToken);
+        const userCredential = await signInWithCredential(auth, googleCredential);
+        user = userCredential.user;
+      }
+  
+      if (user) {
+        // Check if the user exists in MongoDB
+        const response = await fetch("http://localhost:5000/api/checkUser", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({email: user.email })
+        });
+  
+        const data = await response.json();
+        if (response.ok) {
+          await AsyncStorage.setItem("userToken", data.token);
+          await AsyncStorage.setItem("userData", JSON.stringify(data.user));
+          navigation.replace("FindRideScreen"); // Navigate if user exists
+        } else {
+          Alert.alert("Login Failed", data.message);
+        }
+      }
+    } catch (error) {
+      Alert.alert("Google Sign-In Failed", error.message);
+    }
+  };
+  
+  
+
+  // Function to handle Email/Password Login
+  const handleLogin = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/login', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("Login successful:", data.user);
+        await AsyncStorage.setItem("userToken", data.token); 
+        await AsyncStorage.setItem("userData", JSON.stringify(data.user)); 
+        navigation.replace("FindRideScreen");
+      } else {
+        Alert.alert("Login Failed", data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    }
   };
 
   return (
@@ -20,7 +90,7 @@ const LoginScreen = ({ navigation }) => {
       <Text style={styles.heading}>Log in</Text>
 
       {/* Google Authentication Button */}
-      <TouchableOpacity style={styles.authButton}>
+      <TouchableOpacity style={styles.authButton} onPress={handleGoogleLogin}>
         <Text style={styles.authText}>Continue with Google</Text>
       </TouchableOpacity>
 

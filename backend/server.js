@@ -1,63 +1,49 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-
+const authRoutes = require('./routes/auth');
+const http = require('http');
+const socketIo = require('socket.io');
+const chatRoutes = require('./routes/chatRoutes');
+const groupRoutes = require('./routes/groupRoutes');
+const profileRoutes = require('./routes/profile');
+const vehicleRoutes= require('./routes/vehicle');
 // If you're using a database like MongoDB
 const mongoose = require("mongoose");
 
 const app = express();
-const port = 5000; // You can choose any port
+const server = http.createServer(app);
+const io = socketIo(server, { cors: { origin: '*' ,methods: ["GET", "POST"]} });
 
 // Middleware
+app.use(express.json({ limit: '10mb' }));
 app.use(cors()); // Enable Cross-Origin Resource Sharing
-app.use(bodyParser.json()); // Parse JSON request bodies
+
 
 // Connect to MongoDB (if needed)
-mongoose.connect('mongodb+srv://myUser:ZTYMV118L7pDGWMj@cluster0.buoe1.mongodb.net/rideOffer?retryWrites=true&w=majority',{ useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGO_URI,{ useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.log("Error connecting to MongoDB:", err));
 
-// Ride offer schema if using MongoDB (optional)
-const rideOfferSchema = new mongoose.Schema({
-  pickup: String,
-  dropoff: String,
-  date: Date,
-  time: Date,
-  passengers: Number,
-  price: Number,
-  note: String,
-  returnRide: Boolean,
-});
-const RideOffer = mongoose.model("RideOffer", rideOfferSchema);
-
-// API endpoint to handle ride offers
-app.post("/api/offer-ride", (req, res) => {
-  const { pickup, dropoff, date, time, passengers, price, note, returnRide } = req.body;
-
-  // For now, we'll just log the offer. If using MongoDB, you would save it like this:
-  const newRideOffer = new RideOffer({
-    pickup,
-    dropoff,
-    date,
-    time,
-    passengers,
-    price,
-    note,
-    returnRide,
+  app.use('/api', authRoutes);
+  app.use('/api', profileRoutes);
+  app.use('/api',vehicleRoutes);
+  app.use('/api/chat', chatRoutes);
+  app.use('/api/group', groupRoutes);
+  io.on('connection', (socket) => {
+    console.log('New client connected');
+  
+    socket.on('sendMessage', (msg) => {
+      io.emit('receiveMessage', msg);
+    });
+  
+    socket.on('disconnect', () => {
+      console.log('Client disconnected');
+    });
   });
+  const PORT =process.env.PORT;
+  // app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+  server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
-  console.log("Ride Offer Received:", req.body);
-
-  // Simulate saving the ride offer (if using a database)
-  newRideOffer.save()
-    .then(() => res.status(200).json({ message: "Ride offer received successfully!" }))
-    .catch((error) => res.status(500).json({ message: "Error saving ride offer: " + error.message }));
-
-  // If not using a database, you can just respond with success
-  res.status(200).json({ message: "Ride offer received successfully!" });
-});
-
-// Start the server
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});

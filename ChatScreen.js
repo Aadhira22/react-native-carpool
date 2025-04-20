@@ -1,65 +1,303 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  Button,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import io from 'socket.io-client';
+import Icon from 'react-native-vector-icons/Ionicons';
 
-const ChatScreen = () => {
-  const route = useRoute();
-  const { chatName } = route.params; // Get chat name from navigation
+const socket = io('http://192.168.1.33:5000');
 
-  // Sample chat messages
-  const [messages, setMessages] = useState([
-    { id: '1', text: 'By when will you reach?', sender: 'user' },
-    { id: '2', text: '10:00 am', sender: 'other' },
-  ]);
-  
-  const [inputText, setInputText] = useState('');
+const ChatScreen = ({ navigation, route }) => {
+  const { chatId, chatType, name, userId } = route.params;
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [isCreator, setIsCreator] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [newMemberId, setNewMemberId] = useState('');
 
-  // Function to send a message
-  const sendMessage = () => {
-    if (inputText.trim()) {
-      setMessages([...messages, { id: Date.now().toString(), text: inputText, sender: 'user' }]);
-      setInputText('');
+  const flatListRef = useRef(null);
+
+  useEffect(() => {
+    fetch(`http://localhost:5000/api/chat/messages/${chatType}/${chatId}`)
+      .then(res => res.json())
+      .then(data => setMessages(data.reverse()));
+
+    const handleReceiveMessage = (msg) => {
+      if (msg.receiver === chatId && msg.chatType === chatType) {
+        setMessages(prev => {
+          const exists = prev.some(m => m._id === msg._id);
+          return exists ? prev : [msg, ...prev];
+        });
+        scrollToBottom();
+      }
+    };
+
+    socket.on('receiveMessage', handleReceiveMessage);
+    checkIfCreator();
+
+    return () => {
+      socket.off('receiveMessage', handleReceiveMessage);
+    };
+  }, []);
+
+  const scrollToBottom = () => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
+  const checkIfCreator = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/group/user/${userId}`);
+      const groups = await res.json();
+      const group = groups.find(g => g._id === chatId);
+      if (group && group.createdBy === userId) setIsCreator(true);
+    } catch (err) {
+      console.error('Failed to check group creator:', err);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.header}>{chatName}</Text>
-      <FlatList
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={[styles.messageBubble, item.sender === 'user' ? styles.userMessage : styles.otherMessage]}>
-            <Text style={styles.messageText}>{item.text}</Text>
-          </View>
-        )}
-      />
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message..."
-          value={inputText}
-          onChangeText={setInputText}
-        />
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-          <Text style={styles.sendText}>Send</Text>
-        </TouchableOpacity>
+  const sendMessage = async () => {
+    if (!text.trim()) return;
+
+    const msg = {
+      text,
+      sender: userId,
+      receiver: chatId,
+      chatType
+    };
+
+    const res = await fetch('http://localhost:5000/api/chat/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg),
+    });
+
+    const saved = await res.json();
+    socket.emit('sendMessage', saved); // Let socket handle message distribution
+    setText('');
+    scrollToBottom();
+  };
+
+  const handleAddMember = async () => {
+    if (!newMemberId.trim()) {
+      Alert.alert('Input Required', 'Please enter a valid user ID.');
+      return;
+    }
+
+    const token = await AsyncStorage.getItem('userToken');
+    try {
+      const res = await fetch(`http://localhost:5000/api/group/${chatId}/add-member`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId: newMemberId.trim() }),
+      });
+
+      if (!res.ok) throw new Error('Request failed');
+
+      const updatedGroup = await res.json();
+      Alert.alert('Success', `User  added to "${updatedGroup.name}"`);
+      setModalVisible(false);
+      setNewMemberId('');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Could not add user to group.');
+    }
+  };
+
+  const renderMessage = ({ item }) => {
+ const isMine = String(item.sender?._id || item.sender) === String(userId);
+    return (
+      <View style={isMine ? styles.mine : styles.their}>
+        {!isMine && <Text style={styles.senderName}>{item.senderName}</Text>}
+        <Text>{item.text}</Text>
       </View>
-    </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoid}
+      >
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Icon name="arrow-back" size={24} color="black" />
+            </TouchableOpacity>
+            <Text style={styles.title}>{name}</Text>
+            {isCreator && (
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => setModalVisible(true)}
+              >
+                <Icon name="person-add" size={22} color="white" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Message list */}
+          <View style={styles.messageContainer}>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={item => String(item._id || Math.random())}
+              inverted
+              style={styles.messageList}
+              contentContainerStyle={{ paddingBottom: 10 }}
+            />
+          </View>
+
+          {/* Input bar */}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="Type a message"
+              style={styles.input}
+            />
+            <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
+              <Text style={styles.sendText}>Send</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Modal for adding member */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Add Member</Text>
+            <TextInput
+              placeholder="Enter User ID"
+              value={newMemberId}
+              onChangeText={setNewMemberId}
+              style={styles.input}
+            />
+            <View style={styles.modalButtons}>
+              <Button title="Add" onPress={handleAddMember} />
+              <Button title="Cancel" color="gray" onPress={() => setModalVisible(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  header: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 15 },
-  messageBubble: { padding: 10, borderRadius: 10, marginVertical: 5, maxWidth: '70%' },
-  userMessage: { alignSelf: 'flex-end', backgroundColor: '#DCF8C6' },
-  otherMessage: { alignSelf: 'flex-start', backgroundColor: '#EAEAEA' },
-  messageText: { fontSize: 16 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', padding: 10, borderTopWidth: 1, borderColor: '#ddd' },
-  input: { flex: 1, padding: 10, borderWidth: 1, borderColor: '#ddd', borderRadius: 10 },
-  sendButton: { marginLeft: 10, padding: 10, backgroundColor: '#007BFF', borderRadius: 10 },
-  sendText: { color: '#fff', fontWeight: 'bold' }
+  safeArea: { flex: 1, backgroundColor: '#fff' },
+  keyboardAvoid: { flex: 1 },
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  addButton: {
+    marginLeft: 'auto',
+    backgroundColor: '#007bff',
+    padding: 8,
+    borderRadius: 8,
+  },
+  messageContainer: {
+    flex: 1,
+    paddingBottom: 10,
+  },
+  messageList: { flex: 1 },
+  mine: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#DCF8C6',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 4,
+    marginHorizontal: 10,
+    maxWidth: '80%',
+  },
+  their: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#eee',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 4,
+    marginHorizontal: 10,
+    maxWidth: '80%',
+  },
+  senderName: {
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginBottom: 4,
+    color: '#555',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    padding: 10,
+    borderTopWidth: 1,
+    borderColor: '#ccc',
+    backgroundColor: '#fff',
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 10,
+    borderRadius: 8,
+  },
+  sendBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: 'blue',
+    marginLeft: 8,
+    borderRadius: 8,
+  },
+  sendText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    marginBottom: 10,
+    fontWeight: '500',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
 });
-
-export default ChatScreen;
+export  default ChatScreen;

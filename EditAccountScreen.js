@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker'; // For image picking
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const EditAccountScreen = ({ navigation }) => {
-  const [username, setUsername] = useState('Pedro');
-  const [fullName, setFullName] = useState('Shivanshi');
-  const [phoneNumber, setPhoneNumber] = useState('+91 98 1045 3265');
-  const [gender, setGender] = useState('Women');
-  const [email, setEmail] = useState('shivanshi@gmail.com');
-  const [password, setPassword] = useState('******');
-  const [profileImage, setProfileImage] = useState(null);
+const EditAccountScreen = ({ navigation, route }) => {
+  const { user } = route.params;
+  const [username, setUsername] = useState(user.username || '');
+  const [fullName, setFullName] = useState(user.fullName || '');
+  const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber || '');
+  const [gender, setGender] = useState(user.gender || '');
+  const [email, setEmail] = useState(user.email || '');
+  const [profileImage, setProfileImage] = useState(user.profileImage || null);
   const [isEditing, setIsEditing] = useState(false);
 
   const handlePickImage = async () => {
@@ -36,104 +46,178 @@ const EditAccountScreen = ({ navigation }) => {
   };
 
   const handlePhoneNumberChange = (text) => {
-    if (text.length <= 15) { // Adjust based on format
+    if (text.length <= 15) {
       setPhoneNumber(text);
     }
   };
 
-  const handleSave = () => {
-    // Handle save logic here, for example, saving the updated info
-    Alert.alert('Success', 'Your account information has been updated!');
-    setIsEditing(false); // Stop editing after saving
+  const handleSave = async () => {
+    try {
+      const updatedUser = {
+        ...user,
+        username,
+        fullName,
+        phoneNumber,
+        gender,
+        email,
+        profileImage,
+      };
+
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Unauthorized', 'User token not found.');
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/updateUser', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedUser),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error(result);
+        Alert.alert('Update failed', result.message || 'Unable to update user info.');
+        return;
+      }
+
+      // Save updated user info locally
+      await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+      route.params?.onGoBack?.(updatedUser);
+
+      navigation.goBack();
+
+      Alert.alert('Success', 'Your account information has been updated!');
+      setIsEditing(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update account information.');
+      console.error(error);
+    }
   };
 
   const handleEditToggle = () => {
-    setIsEditing(!isEditing); // Toggle between Edit and Save
+    setIsEditing(!isEditing);
   };
 
   return (
-    <View style={styles.container}>
-      {/* Back Button */}
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <FontAwesome name="arrow-left" size={24} color="black" />
-      </TouchableOpacity>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <FontAwesome name="arrow-left" size={24} color="black" />
+        </TouchableOpacity>
 
-      {/* Title */}
-      <Text style={styles.title}>Edit Account</Text>
+        {/* Title */}
+        <Text style={styles.title}>Edit Account</Text>
 
-      {/* Profile Image with Edit Icon */}
-      <View style={styles.profileImageContainer}>
-        <TouchableOpacity onPress={handlePickImage}>
-          <Image
-            source={{ uri: profileImage || 'https://placehold.co/100x100' }}
-            style={styles.profileImage}
-            resizeMode="cover"
-          />
-          <TouchableOpacity style={styles.editIcon} onPress={handlePickImage}>
-            <FontAwesome name="pencil" size={14} color="white" />
+        {/* Profile Image with Edit Icon */}
+        <View style={styles.profileImageContainer}>
+          <TouchableOpacity onPress={handlePickImage}>
+            <Image
+              source={{ uri: profileImage || 'https://placehold.co/100x100' }}
+              style={styles.profileImage}
+              resizeMode="cover"
+            />
+            <TouchableOpacity style={styles.editIcon} onPress={handlePickImage}>
+              <FontAwesome name="pencil" size={14} color="white" />
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
-      </View>
+        </View>
 
-      {/* Editable Fields */}
-      <View style={styles.fieldContainer}>
-        <TouchableOpacity style={styles.fieldRow}>
-          <Text style={styles.label}>Username</Text>
-          <Text style={styles.value}>{username}</Text>
-        </TouchableOpacity>
+        {/* Editable Fields */}
+        <View style={styles.fieldContainer}>
+          <View style={styles.fieldRow}>
+            <Text style={styles.label}>Username</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.inputField}
+                value={username}
+                onChangeText={setUsername}
+              />
+            ) : (
+              <Text style={styles.value}>{username}</Text>
+            )}
+          </View>
 
-        <TouchableOpacity style={styles.fieldRow}>
-          <Text style={styles.label}>Full Name</Text>
-          <Text style={styles.value}>{fullName}</Text>
-        </TouchableOpacity>
+          <View style={styles.fieldRow}>
+            <Text style={styles.label}>Full Name</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.inputField}
+                value={fullName}
+                onChangeText={setFullName}
+              />
+            ) : (
+              <Text style={styles.value}>{fullName}</Text>
+            )}
+          </View>
 
-        <TouchableOpacity style={styles.fieldRow}>
-          <Text style={styles.label}>Phone Number</Text>
-          <TextInput
-            style={styles.inputField}
-            value={phoneNumber}
-            onChangeText={handlePhoneNumberChange}
-            editable={isEditing}
-          />
-        </TouchableOpacity>
+          <View style={styles.fieldRow}>
+            <Text style={styles.label}>Phone Number</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.inputField}
+                value={phoneNumber}
+                onChangeText={handlePhoneNumberChange}
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <Text style={styles.value}>{phoneNumber}</Text>
+            )}
+          </View>
 
-        <TouchableOpacity style={styles.fieldRow}>
-          <Text style={styles.label}>Gender</Text>
-          <Text style={styles.value}>{gender}</Text>
-        </TouchableOpacity>
+          <View style={styles.fieldRow}>
+            <Text style={styles.label}>Gender</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.inputField}
+                value={gender}
+                onChangeText={setGender}
+              />
+            ) : (
+              <Text style={styles.value}>{gender}</Text>
+            )}
+          </View>
 
-        <TouchableOpacity style={styles.fieldRow}>
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            style={styles.inputField}
-            value={email}
-            onChangeText={setEmail}
-            editable={isEditing}
-          />
-        </TouchableOpacity>
+          <View style={styles.fieldRow}>
+            <Text style={styles.label}>Email Address</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.inputField}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+              />
+            ) : (
+              <Text style={styles.value}>{email}</Text>
+            )}
+          </View>
+        </View>
 
-        <TouchableOpacity style={styles.fieldRow}>
-          <Text style={styles.label}>Password</Text>
-          <Text style={styles.value}>{password}</Text>
+        {/* Toggle Edit/Save Button */}
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={isEditing ? handleSave : handleEditToggle}
+        >
+          <Text style={styles.saveButtonText}>{isEditing ? 'Save' : 'Edit'}</Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Toggle Edit/Save Button */}
-      <TouchableOpacity 
-        style={styles.saveButton} 
-        onPress={isEditing ? handleSave : handleEditToggle}
-      >
-        <Text style={styles.saveButtonText}>{isEditing ? 'Save' : 'Edit'}</Text>
-      </TouchableOpacity>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#fff',
     padding: 20,
+    backgroundColor: '#fff',
   },
   backButton: {
     marginBottom: 20,
@@ -161,7 +245,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#d4e157', // Matches the green color in the image
+    backgroundColor: '#d4e157',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -179,18 +263,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     color: '#333',
+    flex: 1,
   },
   inputField: {
     fontSize: 16,
     color: '#333',
-    flex: 1,
+    flex: 2,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    paddingVertical: 5,
+    borderBottomColor: '#ccc',
+    paddingVertical: 2,
+    marginLeft: 10,
   },
   value: {
     fontSize: 16,
     color: '#333',
+    flex: 2,
+    textAlign: 'right',
+    marginLeft: 10,
   },
   saveButton: {
     backgroundColor: '#d4e157',
@@ -202,6 +291,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

@@ -1,25 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState ,useEffect} from 'react';
 import { 
-  View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, Picker
+  View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker'; // For image picking
+import { Picker } from '@react-native-picker/picker';
+import axios from 'axios';
 
-const CompleteProfileScreen = ({ navigation }) => {
+const CompleteProfileScreen = ({ navigation, route }) => {
+  const [userId, setUserId] = useState(null);
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [gender, setGender] = useState('');
-  const [email, setEmail] = useState('');
+  const [dob, setDob] = useState(''); // Replaced email with dob
   const [profileImage, setProfileImage] = useState(null);
   const [pincode, setPincode] = useState('');
 
-  const handleCompleteProfile = () => {
-    if (!fullName || !phoneNumber || !gender || !email || !pincode) {
+  useEffect(() => {
+    if (route.params?.userId) {
+      setUserId(route.params.userId);
+    }
+  }, [route.params]);
+
+  const handleCompleteProfile = async() => {
+    if (!fullName || !phoneNumber || !gender || !dob || !pincode) {
       Alert.alert('Error', 'Please fill out all fields');
       return;
     }
+    // Basic DOB format validation (dd/mm/yyyy)
+    const dobRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (!dobRegex.test(dob)) {
+      Alert.alert('Error', 'Please enter Date of Birth in dd/mm/yyyy format');
+      return;
+    }
     Alert.alert('Success', 'Profile completed successfully!');
-    navigation.navigate('FindRideScreen');
+    try {
+      const response = await axios.post('http://localhost:5000/api/complete-profile', {
+        userId, // Passed from SignUpScreen
+        fullName,
+        phoneNumber,
+        gender,
+        profileImage,
+        pincode,
+        dob
+      });
+  
+      if (response.data.success) {
+        Alert.alert('Success', 'Profile completed successfully!');
+        navigation.navigate('FindRideScreen');
+      } else {
+        Alert.alert('Error', response.data.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong! Please try again.');
+      console.error(error);
+    }
   };
 
   const handlePickImage = async () => {
@@ -45,6 +80,12 @@ const CompleteProfileScreen = ({ navigation }) => {
     if (text.length <= 10) {
       setPhoneNumber(text);
     }
+  };
+
+  const handleDobChange = (text) => {
+    // Allow only numbers and slashes, and limit to dd/mm/yyyy format
+    const cleaned = text.replace(/[^0-9/]/g, '');
+    setDob(cleaned);
   };
 
   return (
@@ -123,14 +164,16 @@ const CompleteProfileScreen = ({ navigation }) => {
         </Picker>
       </View>
 
-      {/* Email Input */}
+      {/* Date of Birth Input */}
       <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={styles.label}>Date of Birth</Text>
         <TextInput 
           style={styles.input} 
-          value={email} 
-          onChangeText={setEmail} 
-          placeholder="Enter Email"
+          value={dob} 
+          onChangeText={handleDobChange} 
+          placeholder="dd/mm/yyyy"
+          keyboardType="numeric" // Use numeric keyboard for easier input
+          maxLength={10} // Limit to 10 characters (dd/mm/yyyy)
         />
       </View>
 

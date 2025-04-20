@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, CheckBox 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert 
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather'; // For show/hide password icon
-import CompleteProfileScreen from './CompleteProfileScreen';
+import CheckBox from 'expo-checkbox';
+import { Feather } from '@expo/vector-icons';
+import axios from 'axios';
+
 const SignUpScreen = ({ navigation }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -13,26 +15,40 @@ const SignUpScreen = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  const handleSignUp = () => {
-    // Handle Sign Up logic
+  const handleSignUp =  async () => {
     if (!agreedToTerms) {
-    Alert.alert('Error', 'You must agree to the terms and conditions.');
-    return;
-  }
+      Alert.alert('Error', 'You must agree to the terms and conditions.');
+      return;
+    }
     if (password !== confirmPassword) {
       Alert.alert('Password mismatch', 'Passwords do not match.');
       return;
     }
-    // Further validation and sign-up logic
-    navigation.navigate('CompleteProfileScreen');
+    try {
+      const response = await axios.post('http://localhost:5000/api/signup', {
+        username,
+        email,
+        password
+      });
+
+      if (response.data.success) {
+        console.log("Navigating to CompleteProfileScreen with userId:", response.data.userId);
+        navigation.navigate('CompleteProfileScreen', { userId: response.data.userId });
+      } else {
+        Alert.alert('Signup Failed', response.data.message);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong! Please try again.');
+      console.error(error);
+    }
   };
+
 
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Let’s Get Started.</Text>
       <Text style={styles.subHeading}>Fill your information below to register a new account.</Text>
 
-      {/* Username Input */}
       <TextInput 
         style={styles.input} 
         placeholder="Username" 
@@ -40,7 +56,6 @@ const SignUpScreen = ({ navigation }) => {
         onChangeText={setUsername} 
       />
 
-      {/* Email Input */}
       <TextInput 
         style={styles.input} 
         placeholder="Email" 
@@ -49,35 +64,40 @@ const SignUpScreen = ({ navigation }) => {
         onChangeText={setEmail} 
       />
 
-      {/* Password Input with Show/Hide Toggle */}
       <View style={styles.passwordContainer}>
         <TextInput 
           style={styles.passwordInput} 
           placeholder="Password" 
+          placeholderTextColor="#888" // Added to ensure placeholder visibility
           secureTextEntry={!showPassword}
           value={password}
           onChangeText={setPassword}  
         />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-          <Icon name={showPassword ? 'eye' : 'eye-off'} size={20} color="#888" />
+        <TouchableOpacity 
+          style={styles.eyeIcon} // Added style for spacing
+          onPress={() => setShowPassword(!showPassword)}
+        >
+          <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color="#888" />
         </TouchableOpacity>
       </View>
 
-      {/* Confirm Password Input with Show/Hide Toggle */}
       <View style={styles.passwordContainer}>
         <TextInput 
           style={styles.passwordInput} 
           placeholder="Confirm Password" 
+          placeholderTextColor="#888" // Added to ensure placeholder visibility
           secureTextEntry={!showConfirmPassword}
           value={confirmPassword}
           onChangeText={setConfirmPassword}  
         />
-        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-          <Icon name={showConfirmPassword ? 'eye' : 'eye-off'} size={20} color="#888" />
+        <TouchableOpacity 
+          style={styles.eyeIcon} // Added style for spacing
+          onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+        >
+          <Feather name={showConfirmPassword ? 'eye' : 'eye-off'} size={20} color="#888" />
         </TouchableOpacity>
       </View>
 
-      {/* Agree to Terms and Conditions */}
       <View style={styles.termsContainer}>
         <CheckBox 
           value={agreedToTerms}
@@ -86,12 +106,10 @@ const SignUpScreen = ({ navigation }) => {
         <Text style={styles.termsText}> Agree with Terms & Condition</Text>
       </View>
 
-      {/* Sign Up Button */}
       <TouchableOpacity style={styles.button} onPress={handleSignUp}>
         <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
 
-      {/* Link to Sign In */}
       <View style={styles.signInContainer}>
         <Text style={styles.signInText}>Already have an account? </Text>
         <TouchableOpacity onPress={() => navigation.navigate('Login')}>
@@ -104,10 +122,10 @@ const SignUpScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { 
-    flex: 1, // Ensures the background spans the entire screen
+    flex: 1, 
     justifyContent: 'center', 
     padding: 20, 
-    backgroundColor: 'white', 
+    backgroundColor: 'white' 
   },
   heading: { 
     fontSize: 28, 
@@ -128,8 +146,8 @@ const styles = StyleSheet.create({
     borderRadius: 8, 
     padding: 15, 
     width: '100%', 
-    marginBottom: 20,
-    height: 50,
+    marginBottom: 20, 
+    height: 50 
   },
   passwordContainer: { 
     flexDirection: 'row', 
@@ -137,22 +155,26 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#ccc', 
     borderRadius: 8, 
-    padding: 15, 
-    marginBottom: 20,
-    height: 50,
+    marginBottom: 20, 
+    height: 50 
   },
   passwordInput: { 
-    flex: 1,
+    flex: 1, 
+    paddingVertical: 15, // Adjusted padding for consistency
+    paddingLeft: 15,     // Added left padding for placeholder visibility
+  },
+  eyeIcon: { 
+    padding: 10 // Added padding to give space to the icon
   },
   termsContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    marginBottom: 30,
+    marginBottom: 30 
   },
   termsText: { 
     fontSize: 14, 
     color: '#333', 
-    paddingBottom:3,
+    paddingBottom: 3 
   },
   button: { 
     backgroundColor: '#FF4500', 
@@ -166,19 +188,19 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     fontWeight: 'bold' 
   },
-  signInContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 15,
+  signInContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    marginTop: 15 
   },
   signInText: { 
     fontSize: 14, 
-    color: '#000',
+    color: '#000' 
   },
-  hyperlink: {
+  hyperlink: { 
     fontSize: 14, 
     color: '#FF4500', 
-    fontWeight: 'bold',
+    fontWeight: 'bold' 
   },
 });
 

@@ -3,23 +3,66 @@ import {
   View, Text, TouchableOpacity, Image, StyleSheet, Alert 
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import axios from 'axios';
 
-const VehicleManagementScreen = ({ navigation }) => {
-  const [vehicle, setVehicle] = useState({
-    model: 'Creta',
-    plate: 'DL2CU 5417',
-    imageUri: 'https://placehold.co/100x100', // Placeholder image URI
-  });
+const VehicleManagementScreen = ({ navigation, route }) => {
+  const userId = route.params?.userId;
+  const [vehicle, setVehicle] = useState(null);
 
-  const handleAddVehicle = () => {
-    // Handle Add Vehicle logic here, like navigating to a new screen to add a vehicle
-   navigation.navigate("AddVehicleScreen");
+  // Fetch vehicle data function
+  const fetchVehicle = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/vehicles/${userId}`);
+      setVehicle(res.data[0] || null); // fallback to null if empty array
+    } catch (error) {
+      console.error('Failed to fetch vehicle:', error);
+    }
   };
 
+  // Fetch on screen focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchVehicle();
+    }, [])
+  );
+
+  // Navigate to add vehicle screen
+  const handleAddVehicle = () => {
+    navigation.navigate("AddVehicleScreen", { userId });
+  };
+
+  // Placeholder for future vehicle detail page
   const handleSelectVehicle = () => {
-    // Handle selecting a vehicle, like navigating to vehicle details
     Alert.alert('Vehicle Selected', 'Navigate to the selected vehicle details!');
   };
+
+  // Handle vehicle delete
+  const confirmDeleteVehicle = async () => {
+    try {
+      await axios.delete(`http://localhost:5000/api/vehicles/${vehicle._id}`);
+      await fetchVehicle(); // refresh state after deletion
+    } catch (error) {
+      console.error('Failed to delete vehicle:', error);
+      Alert.alert('Error', 'Could not delete the vehicle.');
+    }
+  };
+  
+  const handleDeleteVehicle = () => {
+    Alert.alert(
+      'Delete Vehicle',
+      'Are you sure you want to delete this vehicle?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: confirmDeleteVehicle, // no async wrapper here!
+        },
+      ]
+    );
+  };
+  
 
   return (
     <View style={styles.container}>
@@ -32,18 +75,23 @@ const VehicleManagementScreen = ({ navigation }) => {
       <Text style={styles.title}>Vehicle Management</Text>
 
       {/* Selected Vehicle Display */}
-      <TouchableOpacity style={styles.vehicleCard} onPress={handleSelectVehicle}>
-        <Image
-          source={{ uri: vehicle.imageUri }}
-          style={styles.vehicleImage}
-          resizeMode="cover"
-        />
-        <View style={styles.vehicleDetails}>
-          <Text style={styles.vehicleModel}>{vehicle.model}</Text>
-          <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>
-        </View>
-        <FontAwesome name="chevron-right" size={20} color="gray" />
-      </TouchableOpacity>
+      {vehicle ? (
+        <TouchableOpacity style={styles.vehicleCard} onPress={handleSelectVehicle}>
+          <Image 
+            source={{ uri: vehicle.images?.[0] || 'https://via.placeholder.com/60' }} 
+            style={styles.vehicleImage} 
+          />
+          <View style={styles.vehicleDetails}>
+            <Text style={styles.vehicleModel}>{vehicle.model}</Text>
+            <Text style={styles.vehiclePlate}>{vehicle.plate}</Text>
+          </View>
+          <TouchableOpacity onPress={handleDeleteVehicle}>
+            <FontAwesome name="trash" size={20} color="red" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      ) : (
+        <Text>No vehicle added yet.</Text>
+      )}
 
       {/* Add Vehicle Button */}
       <TouchableOpacity style={styles.addVehicleButton} onPress={handleAddVehicle}>
@@ -100,7 +148,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 25,
     borderWidth: 1,
-    borderColor: '#d4e157', // Matches the green color in your reference
+    borderColor: '#d4e157',
     alignItems: 'center',
     marginBottom: 20,
   },

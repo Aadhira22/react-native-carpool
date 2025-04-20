@@ -5,8 +5,10 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome } from '@expo/vector-icons';
+import axios from 'axios';
 
-const AddVehicleScreen = ({ navigation }) => {
+const AddVehicleScreen = ({ navigation, route}) => {
+  const userId = route.params?.userId;
   const [vehicleType, setVehicleType] = useState('4-seater');
   const [vehicleBrand, setVehicleBrand] = useState('Hyundai');
   const [vehicleModel, setVehicleModel] = useState('');
@@ -21,26 +23,38 @@ const AddVehicleScreen = ({ navigation }) => {
     }
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission denied', 'You need to grant permission to access images.');
+      Alert.alert('Permission denied');
       return;
     }
-
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
     });
-
     if (!result.canceled) {
       const imageUri = result.assets ? result.assets[0].uri : result.uri;
       setPhoto([...photo, imageUri]);
     }
   };
 
-  const handleSubmit = () => {
-    Alert.alert('Vehicle Added', 'Your vehicle has been added successfully!');
-    navigation.goBack();
+  const handleSubmit = async () => {
+    try {
+      const response = await axios.post('http://localhost:5000/api/vehicles', {
+        userId,
+        type: vehicleType,
+        brand: vehicleBrand,
+        model: vehicleModel,
+        color: vehicleColor,
+        plate: registrationPlate,
+        images: photo,
+      });
+      Alert.alert('Vehicle Added', 'Your vehicle has been added!');
+      navigation.goBack();
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to add vehicle.');
+    }
   };
 
   return (
