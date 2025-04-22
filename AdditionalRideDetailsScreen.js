@@ -56,7 +56,7 @@ const AdditionalRideDetailsScreen = ({ route, navigation }) => {
     };
 
     try {
-      const response = await fetch('http://<YOUR_LOCAL_IP>:5000/api/rides', {
+      const response = await fetch('http://localhost:5000/api/rides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rideData),
