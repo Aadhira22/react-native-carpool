@@ -19,7 +19,7 @@
     "@react-navigation/native": "*",
     "@react-navigation/stack": "*",
     "axios": "^1.8.4",
-    "bcryptjs": "^3.0.2",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "expo": "^52.0.42",
