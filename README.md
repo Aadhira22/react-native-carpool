@@ -11,10 +11,6 @@ EasyRide is a cross-platform mobile application designed to simplify ride-sharin
 4. Features  
 5. Technologies Used  
 6. Installation  
-7. Future Enhancements  
-8. Contributions  
-9. License  
-
 ---
 
 ## ✅ 1. Overview
@@ -98,7 +94,7 @@ EasyRide aims to:
 - **Google Places Autocomplete**
 - **Google Directions API**
 - **Firebase and MongoDB**
-
+  
 ---
 
 ## ⚙️ 6. Installation
