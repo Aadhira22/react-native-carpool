@@ -48,11 +48,6 @@ EasyRide aims to:
 ### ✅ Industry Trends
 - Growing urban congestion and pollution  
 - Rising fuel prices encouraging carpooling  
-- Market presence of similar services like:
-  - BlaBlaCar  
-  - Quick Ride  
-  - Uber Pool (limited regions)  
-
 ### ✅ Target Audience
 - Daily commuters (students, office workers)  
 - Environment-conscious individuals  
