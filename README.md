@@ -97,7 +97,7 @@ EasyRide aims to:
 - **Google Maps API**
 - **Google Places Autocomplete**
 - **Google Directions API**
-- (Add backend or database if applicable)
+- **Firebase and MongoDB**
 
 ---
 
